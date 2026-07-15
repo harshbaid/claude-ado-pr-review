@@ -1,0 +1,103 @@
+# claude-ado-pr-review
+
+An automated senior code reviewer for **Azure DevOps** pull requests, driven by
+[Claude Code](https://claude.com/claude-code). It polls active PRs, runs a review prompt over each
+diff, **verifies each finding against the PR's actual source tree** to cut false positives, and posts
+what survives as resolvable ADO threads - then handles developer replies without nagging.
+
+It is packaged as a Claude Code **skill** plus a companion **slash command**, so you install it into a
+repo's `.claude/` and drive it with `/pr-review` (or let it poll on its own for zero idle cost).
+
+> Built because the official Azure DevOps MCP server is VS Code / Visual Studio only, and cloud-hosted
+> agent runs were blocked by org policy. A local polling bot in Claude Code satisfies both constraints.
+
+## What it does
+
+```
+poll active PRs  ->  new commits?  ->  review the diff  ->  verify each finding vs the source tree
+                                                              ->  post survivors as resolvable threads
+new dev reply?   ->  ignore reason? resolve (byDesign)  |  agreement/"fixing it"? leave active
+next re-review   ->  issue gone from code? resolve (fixed)
+```
+
+- **Findings are pre-verified.** Each candidate finding's hypothesis is checked with `git grep`/
+  `git show` at the PR head SHA before posting; disprovable ones are dropped, confirmed ones are
+  upgraded with concrete evidence. This is the main precision control.
+- **A comment never closes a real bug.** Only an explicit `ignore: <reason>` (or a justification
+  proving the finding wrong), or a later re-review that verifies the code changed, resolves a thread.
+- **Narrow by design.** Four categories - Bugs, Security, Runtime performance, Data integrity - and an
+  explicit skip list. Style/naming/formatting noise is out.
+
+## Install
+
+Copy two things into your repo's `.claude/`:
+
+```bash
+git clone https://github.com/harshbaid/claude-ado-pr-review
+cp -r claude-ado-pr-review/.claude/skills/ado-pr-review  <your-repo>/.claude/skills/
+cp    claude-ado-pr-review/.claude/commands/pr-review.md <your-repo>/.claude/commands/
+```
+
+Then the one-time setup (PAT + config) in
+[.claude/skills/ado-pr-review/README.md](.claude/skills/ado-pr-review/README.md).
+
+## Quickstart
+
+```powershell
+# from your repo root, after copying the skill in:
+Copy-Item .claude/skills/ado-pr-review/config.example.json .claude/skills/ado-pr-review/config.json
+# edit config.json: organization / project / repository / orgUrl
+Set-Content .claude/skills/ado-pr-review/.pat "<your-ADO-PAT>" -NoNewline   # Code:Read + PR Threads:Read&Write
+
+# smoke-test
+$env:AZURE_DEVOPS_EXT_PAT = (Get-Content .claude/skills/ado-pr-review/.pat -Raw).Trim()
+. .\.claude\skills\ado-pr-review\lib\ado.ps1 ; Test-ADOConnectivity
+```
+
+`config.json` ships with `dryRun: true` - run it dry, read the logs, tune the prompt, then go live.
+
+Then, in a Claude Code session in that repo:
+
+```
+/pr-review
+```
+
+## Run modes
+
+| Mode | How | Idle cost | When |
+|---|---|---|---|
+| **On-demand** | `/pr-review` | one model tick | Sweep at your own pace |
+| **Recurring loop** | `/loop 10m /pr-review` | a few K tokens/tick | Continuous within a session |
+| **Zero-token gate** | `gate.ps1` on a schedule / sleep-loop | **zero tokens** | Always-on; spends only on real work |
+
+The gate does the "is there work?" decision in pure PowerShell and invokes the model only when a PR
+has a new commit or a new reply. A common always-on setup is one terminal running:
+
+```powershell
+while ($true) { .\.claude\skills\ado-pr-review\gate.ps1; Start-Sleep -Seconds 600 }
+```
+
+## Cloud vs on-prem
+
+- **Azure DevOps Services (cloud):** works out of the box.
+- **Azure DevOps Server (on-prem):** expected to work with config-only changes (`orgUrl` ->
+  `https://<server>/<collection>`, possibly a lower `apiVersion`), since the engine is pure REST + PAT
+  with no hardcoded host. Unverified - the likely snags are PAT-vs-Windows auth and older API versions.
+  If you run it on-prem, a report back (issue/PR) is very welcome.
+
+## Requirements
+
+- Windows PowerShell 5.1+, Git, and Claude Code.
+- An ADO PAT with least privilege: **Code: Read** + **Pull Request Threads: Read & Write**. The bot
+  never pushes commits or changes branches.
+
+## Safety
+
+- Dry-run by default; no writes until you opt in.
+- Least-privilege PAT; `.pat` and `config.json` are gitignored.
+- Comments post under your PAT identity with an "automated review" footer. If volume bothers the team,
+  use a dedicated service account.
+
+## License
+
+[MIT](LICENSE)

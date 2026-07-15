@@ -1,0 +1,42 @@
+{
+  "_comment": "Copy to config.json (same folder) and fill in your values. config.json is gitignored.",
+  "azureDevOps": {
+    "organization": "<your-org>",
+    "project": "<your-project>",
+    "repository": "<your-repo>",
+    "orgUrl": "https://dev.azure.com/<your-org>",
+    "_orgUrl_onprem": "For Azure DevOps Server (on-prem) use https://<server>/<collection> instead, and lower apiVersion if needed.",
+    "apiVersion": "7.1"
+  },
+  "polling": {
+    "intervalMinutes": 10,
+    "targetBranches": ["develop", "main"]
+  },
+  "review": {
+    "scope": "diff vs PR target branch",
+    "maxDiffBytes": 500000,
+    "skipPathGlobs": [
+      "**/package-lock.json",
+      "**/pnpm-lock.yaml",
+      "**/yarn.lock",
+      "**/*.min.js",
+      "**/*.min.css",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/*.generated.*"
+    ]
+  },
+  "behavior": {
+    "dryRun": true,
+    "skipDraftPRs": true,
+    "onlyAssignedToMe": false,
+    "perPRMaxIssues": 30,
+    "perTickMaxPRsReviewed": 5,
+    "maxReplyCounterRounds": 1
+  },
+  "logging": {
+    "directory": "logs",
+    "retentionDays": 14
+  }
+}
