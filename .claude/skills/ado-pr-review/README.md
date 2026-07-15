@@ -147,6 +147,54 @@ Recommended: run dry for 2-3 days on real PRs, read the logs, tune the review pr
 `"dryRun": false`. Both `/pr-review` and the loop respect the flag identically. State is updated even
 in dry-run, so re-runs do not re-post.
 
+## Using a different agent CLI
+
+The gate is not hardwired to Claude Code. The engine (polling, diff, state, lane decision) is pure
+PowerShell + REST and does not care which agent runs the review; the review logic itself lives in the
+plain-Markdown prompt files (`review-loop.md`, `review-pr.md`, `resolve-replies.md`) that any capable
+agent can read and execute. Only the spawn in `gate.ps1` is agent-specific, and it is config-driven:
+
+```jsonc
+"agent": {
+  "command": "claude",                                        // the CLI executable
+  "args": ["-p", "{prompt}", "--dangerously-skip-permissions"], // {prompt} is substituted
+  "prompt": "/pr-review"                                       // what to hand the agent
+}
+```
+
+Omit the whole `agent` block to keep the Claude Code default. Two rules for any other CLI:
+
+1. **It must run non-interactively and auto-approve tool use.** The gate is headless - it cannot
+   answer permission prompts. Put your CLI's auto-approve flag in `args`. Confirm the exact flag name
+   against your CLI's `--help`; it changes between versions.
+2. **Set `prompt` to a self-contained instruction.** `/pr-review` is a Claude Code slash command that
+   other CLIs do not have. For any non-Claude CLI, use an instruction that stands on its own, e.g.:
+
+   > Set the environment variable AZURE_DEVOPS_EXT_PAT from the file
+   > `.claude/skills/ado-pr-review/.pat`, then read
+   > `.claude/skills/ado-pr-review/review-loop.md` and execute its per-tick algorithm exactly once
+   > (dispatching `review-pr.md` and `resolve-replies.md` per its lanes), honoring
+   > `config.json` `behavior.dryRun`. Then stop - do not loop.
+
+Illustrative templates (verify the flags yourself):
+
+| CLI | `command` | `args` |
+|---|---|---|
+| Claude Code (default, tested) | `claude` | `["-p", "{prompt}", "--dangerously-skip-permissions"]` |
+| Gemini CLI / Antigravity | `gemini` | `["-p", "{prompt}", "--yolo"]` |
+| GitHub Copilot CLI | `copilot` | `["-p", "{prompt}", "--allow-all-tools"]` |
+
+Test the wiring without spending any tokens - the dry-run prints the exact resolved command instead
+of running it:
+
+```powershell
+$env:PRBOT_GATE_DRYRUN = '1'; .\.claude\skills\ado-pr-review\gate.ps1; Remove-Item Env:\PRBOT_GATE_DRYRUN
+```
+
+**Only Claude Code is tested end to end.** The others are wired to run but unproven - the review
+quality also depends on how well your chosen model follows the prompt files' verify-before-posting
+discipline. Treat a new CLI like a new install: run it in `dryRun` first. Reports welcome.
+
 ## What gets reviewed
 
 Findings are limited to the categories in your review prompt (`review-pr.md` Step 3). The shipped

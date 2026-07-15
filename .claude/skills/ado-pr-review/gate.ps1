@@ -2,15 +2,20 @@
 #
 # Run this on a schedule (Windows Task Scheduler, or a sleep-loop). It makes the lane
 # decision in pure PowerShell - hitting only the ADO REST API, NO model invocation - and
-# spawns the Claude Code review pass (`claude -p "/pr-review"`) ONLY when there is actual
-# Lane A (new SHA) or Lane B (new dev reply) work. Idle polls therefore cost zero AI tokens;
-# the model is invoked exclusively when the "AI brain" is genuinely needed.
+# spawns the configured review agent ONLY when there is actual Lane A (new SHA) or Lane B
+# (new dev reply) work. Idle polls therefore cost zero AI tokens; the agent is invoked
+# exclusively when the "AI brain" is genuinely needed.
+#
+# Which agent it spawns is config-driven (config.agent.reviewCommand, {prompt} substituted
+# with config.agent.reviewPrompt). It defaults to Claude Code (`claude -p "/pr-review"`) when
+# the agent block is absent, so this is backward compatible. See README "Using a different
+# agent CLI" to point it at Gemini CLI / Antigravity, GitHub Copilot CLI, or any headless agent.
 #
 # Contrast with `/loop 10m /pr-review`: that re-invokes the model every tick (a few K tokens
 # even when idle). This gate is free until there is work.
 #
-# Dry-run: set $env:PRBOT_GATE_DRYRUN=1 to print what WOULD be invoked instead of spawning
-# Claude (used to test the decision path safely).
+# Dry-run: set $env:PRBOT_GATE_DRYRUN=1 to print the resolved command that WOULD be invoked
+# instead of spawning it (used to test the decision path safely).
 
 $ErrorActionPreference = 'Stop'
 
@@ -62,17 +67,28 @@ $laneAIds = (@($plan.laneA) | ForEach-Object { $_.id }) -join ','
 $laneBIds = (@($plan.laneB) | ForEach-Object { $_.id }) -join ','
 Write-GateLog "gate: WORK FOUND (laneA=[$laneAIds] laneB=[$laneBIds]) - invoking review pass"
 
+# Resolve WHICH agent CLI to spawn from config, as an executable + argument array (no shell eval).
+# Each arg has {prompt} substituted with config.agent.prompt. Absent agent block -> Claude Code
+# default (backward compatible). See README "Using a different agent CLI".
+$cfg       = Get-ADOConfig
+$agentCmd  = if ($cfg.agent -and $cfg.agent.command) { [string]$cfg.agent.command } else { 'claude' }
+$agentArgs = if ($cfg.agent -and $cfg.agent.args)    { @($cfg.agent.args) }         else { @('-p', '{prompt}', '--dangerously-skip-permissions') }
+$prompt    = if ($cfg.agent -and $cfg.agent.prompt)  { [string]$cfg.agent.prompt }  else { '/pr-review' }
+$resolvedArgs = @($agentArgs | ForEach-Object { ([string]$_).Replace('{prompt}', $prompt) })
+
 if ($env:PRBOT_GATE_DRYRUN -eq '1') {
-    Write-GateLog "gate: [DRYRUN] would run: claude -p `"/pr-review`""
+    Write-GateLog "gate: [DRYRUN] would run: $agentCmd $($resolvedArgs -join ' ')"
     return
 }
 
 Set-Content -Path $lock -Value ([DateTime]::Now.ToString('o'))
 try {
-    $claudeLog = Join-Path $logDir ((Get-Date).ToString('yyyy-MM-dd') + '.gate-claude.log')
-    # Headless one-shot review pass. It writes to ADO + state.json and headless cannot answer
-    # permission prompts, so we skip them (this is a trusted local bot driving its own repo).
-    & claude -p "/pr-review" --dangerously-skip-permissions 2>&1 | Tee-Object -FilePath $claudeLog -Append
+    $agentLog = Join-Path $logDir ((Get-Date).ToString('yyyy-MM-dd') + '.gate-agent.log')
+    # Headless one-shot review pass. The agent writes to ADO + state.json and headless cannot
+    # answer permission prompts, so config.agent.args should include the CLI's auto-approve flag
+    # (this is a trusted local bot driving its own repo). Called via the call operator with a
+    # splatted arg array - flags pass through verbatim, no shell evaluation.
+    & $agentCmd @resolvedArgs 2>&1 | Tee-Object -FilePath $agentLog -Append
     Write-GateLog "gate: review pass exited ($LASTEXITCODE)"
 }
 finally {

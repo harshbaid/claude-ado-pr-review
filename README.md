@@ -108,15 +108,23 @@ heavier review skill) is spent where it matters.
 
 ## Roadmap
 
-The engine - PowerShell + Azure DevOps REST + the state machine - is **AI-CLI-agnostic**. It decides
-*when* there is work and hands a diff to an agent; it does not care which agent. Only two touch points
-are Claude-specific today: the spawn line in `gate.ps1` (`claude -p "/pr-review"`) and the skill /
-slash-command packaging. The orchestration files are plain Markdown prompts.
+**Multi-CLI - shipped for the gate.** The engine (PowerShell + Azure DevOps REST + the state machine)
+is AI-CLI-agnostic, and `gate.ps1` now spawns a **configurable** agent - `config.agent` gives a
+`command` + `args` array (with a `{prompt}` placeholder), defaulting to Claude Code when omitted. The
+review logic itself lives in plain-Markdown prompt files any capable agent can execute. So the same
+bot can drive **Gemini CLI / Google Antigravity**, **GitHub Copilot CLI**, or any headless agent that
+runs non-interactively - see
+[Using a different agent CLI](.claude/skills/ado-pr-review/README.md#using-a-different-agent-cli).
 
-Planned: a configurable `reviewCommand` in `config.json` so the same bot can drive other headless
-agent CLIs - **Gemini CLI / Google Antigravity**, **GitHub Copilot CLI**, or anything that accepts a
-prompt and can run `git` + REST. The prompts would move to a neutral location the chosen CLI is
-pointed at. If you wire one up for your CLI of choice, a PR is very welcome.
+Still open:
+
+- Only Claude Code is tested end to end - the Gemini and Copilot paths are wired but unproven (exact
+  flags, and how well the model follows the verify-before-posting discipline).
+- The interactive `/pr-review` and `/loop` modes remain Claude Code-specific; the gate is the portable
+  path for other CLIs.
+- Broader verification recipes and a lightweight per-PR review-quality signal.
+
+PRs - especially "I ran it on CLI X (or on-prem ADO) and here is what I hit" - are very welcome.
 
 ## License
 

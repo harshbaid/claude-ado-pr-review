@@ -48,6 +48,15 @@ while ($true) { .\.claude\skills\ado-pr-review\gate.ps1; Start-Sleep -Seconds 60
 
 See README for the Windows Task Scheduler version (survives sleep/logoff).
 
+## Which agent CLI the gate spawns
+
+Config-driven via `config.agent` (`command` + `args` with a `{prompt}` placeholder). Omit it for the
+Claude Code default (`claude -p "/pr-review" --dangerously-skip-permissions`). The engine and the
+review prompts are agent-agnostic, so the gate can drive Gemini CLI / Antigravity, GitHub Copilot CLI,
+or any headless agent that runs non-interactively with an auto-approve flag - only Claude Code is
+tested end to end. See README "Using a different agent CLI". (This only affects `gate.ps1`; the
+interactive `/pr-review` and `/loop` modes are Claude Code.)
+
 ## Start in dry-run
 
 `behavior.dryRun` in `config.json` is `true` by default. It computes and logs everything but posts nothing to ADO. Run dry for a few days on real PRs, read the logs, tune the review prompt (see `references/review-prompt-examples.md`), then flip to `false`.

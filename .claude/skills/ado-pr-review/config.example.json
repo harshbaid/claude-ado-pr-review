@@ -27,6 +27,13 @@
       "**/*.generated.*"
     ]
   },
+  "agent": {
+    "_comment": "Which headless AI CLI gate.ps1 spawns when there is work. Invoked as: command + args (each arg has {prompt} substituted with the prompt below). Omit this whole block to use the Claude Code default. Only affects gate.ps1 - the interactive /pr-review and /loop modes are Claude Code. Whatever CLI you use MUST run non-interactively and auto-approve tool use (headless cannot answer prompts), so include that flag in args.",
+    "command": "claude",
+    "args": ["-p", "{prompt}", "--dangerously-skip-permissions"],
+    "prompt": "/pr-review",
+    "_other_cli_examples": "See README 'Using a different agent CLI'. Illustrative templates (CONFIRM flags against your CLI's --help; the auto-approve flag name changes between versions): Gemini CLI -> command 'gemini', args ['-p','{prompt}','--yolo']; GitHub Copilot CLI -> command 'copilot', args ['-p','{prompt}','--allow-all-tools']. For any non-Claude CLI, also set prompt to a self-contained instruction (see README) since '/pr-review' is a Claude Code slash command."
+  },
   "behavior": {
     "dryRun": true,
     "skipDraftPRs": true,
