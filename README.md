@@ -22,7 +22,8 @@ next re-review   ->  issue gone from code? resolve (fixed)
 
 - **Findings are pre-verified.** Each candidate finding's hypothesis is checked with `git grep`/
   `git show` at the PR head SHA before posting; disprovable ones are dropped, confirmed ones are
-  upgraded with concrete evidence. This is the main precision control.
+  upgraded with concrete evidence. This is the main precision control - and the reason developers
+  keep acting on the comments instead of tuning a noisy bot out.
 - **A comment never closes a real bug.** Only an explicit `ignore: <reason>` (or a justification
   proving the finding wrong), or a later re-review that verifies the code changed, resolves a thread.
 - **Narrow by design.** Four categories - Bugs, Security, Runtime performance, Data integrity - and an
@@ -125,6 +126,10 @@ Still open:
 - Broader verification recipes and a lightweight per-PR review-quality signal.
 
 PRs - especially "I ran it on CLI X (or on-prem ADO) and here is what I hit" - are very welcome.
+
+The honest long game: if Azure DevOps ever ships a native reviewer you can tag into a PR - the way
+Claude already plugs into Slack and GitHub pull requests - this becomes unnecessary, and that is a
+fine outcome. The point was always the reviewer that verifies itself, not the plumbing.
 
 ## License
 
