@@ -98,6 +98,26 @@ while ($true) { .\.claude\skills\ado-pr-review\gate.ps1; Start-Sleep -Seconds 60
 - Comments post under your PAT identity with an "automated review" footer. If volume bothers the team,
   use a dedicated service account.
 
+## Complementary: deep manual review
+
+This bot is a fast, always-on net for a few high-value categories - not a substitute for a thorough
+review of a gnarly change. For complex or high-risk PRs, pair it with a deep manual pass such as
+Matt Pocock's [`code-review` skill](https://github.com/mattpocock/skills/blob/main/skills/engineering/code-review/SKILL.md),
+run on demand. The two are complementary: this bot triages the everyday flow so your attention (and a
+heavier review skill) is spent where it matters.
+
+## Roadmap
+
+The engine - PowerShell + Azure DevOps REST + the state machine - is **AI-CLI-agnostic**. It decides
+*when* there is work and hands a diff to an agent; it does not care which agent. Only two touch points
+are Claude-specific today: the spawn line in `gate.ps1` (`claude -p "/pr-review"`) and the skill /
+slash-command packaging. The orchestration files are plain Markdown prompts.
+
+Planned: a configurable `reviewCommand` in `config.json` so the same bot can drive other headless
+agent CLIs - **Gemini CLI / Google Antigravity**, **GitHub Copilot CLI**, or anything that accepts a
+prompt and can run `git` + REST. The prompts would move to a neutral location the chosen CLI is
+pointed at. If you wire one up for your CLI of choice, a PR is very welcome.
+
 ## License
 
 [MIT](LICENSE)
