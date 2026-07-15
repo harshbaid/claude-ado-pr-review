@@ -8,8 +8,8 @@ what survives as resolvable ADO threads - then handles developer replies without
 It is packaged as a Claude Code **skill** plus a companion **slash command**, so you install it into a
 repo's `.claude/` and drive it with `/pr-review` (or let it poll on its own for zero idle cost).
 
-> Built because the official Azure DevOps MCP server is VS Code / Visual Studio only, and cloud-hosted
-> agent runs were blocked by org policy. A local polling bot in Claude Code satisfies both constraints.
+> Built because the official Azure DevOps MCP server runs only inside VS Code / Visual Studio, and I
+> wanted PR review running unattended, not in my editor. A local polling bot in Claude Code fits that gap.
 
 ## What it does
 
